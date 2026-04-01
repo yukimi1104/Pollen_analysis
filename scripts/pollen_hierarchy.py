@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+Pollen Level-1 Hierarchy Optimization:
 The script performs a cutoff on the CNN features to 
 simplify the classification of 322 pollen species. By calculating
 Euclidean distances between the 512-dimensional morphological vectors, 
@@ -21,23 +22,23 @@ import numpy as np
 import pandas as pd
 # main data operation library
 import matplotlib.pyplot as plt
-import os
 # for directory and path handling
+import os
 # for dendrogram plots
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
-from scipy.spatial.distance import pdist
 # for hierarchical clustering
+from scipy.spatial.distance import pdist
 # Main execution pipeline for the hierarchical clustering analysis
 # This script should be executed under the Pollen_analysis directory root
 def main():
     # Define output directory
-    output_dir='output/Level1'
-    # If there is no output directory, it will be created
-    os.makedirs(output_dir,exist_ok=True)
+    output_directory='output/Level1'
+    # If there is no Level 1 in output directory, it will be created
+    os.makedirs(output_directory,exist_ok=True)
     # Load the .mat file into a dictionary using scipy
     print("Load model feature data")
     data=scipy.io.loadmat('data/modelFeatures_1.mat')
-    # Extract prototypes from dict
+    # Extract prototypes(322*521 array) from dict
     prototypes=data['prototypes']
     # Extract species names from Matlab cell format
     # name[0] extrats the cell content, and the second [0] extracts the actual string
@@ -72,7 +73,7 @@ def main():
             'Max_Size': counts.max(),
             'Min_Size': counts.min()
         })
-        print(f"{h} | {len(unique_clusters)} | {counts.max()} | {counts.min()}")
+        print(f"{i} | {len(unique_clusters)} | {counts.max()} | {counts.min()}")
     # Find the best cutoff and map species names
     # Based on scan results: Cutoff 45 leads to 15 clusters with max size 35
     final_cutoff=45 
@@ -86,7 +87,7 @@ def main():
         'Cluster_ID': final_labels
     })
     #Save the mapping result as csv form in the output directory
-    csv_filename=os.path.join(output_dir,'species_to_cluster_mapping_v1.csv')
+    csv_filename=os.path.join(output_directory,'species_to_cluster_mapping_v1.csv')
     mapping_df.to_csv(csv_filename, index=False)
     print(f"Map for {len(np.unique(final_labels))} clusters saved to {csv_filename}")
     #Visualization 
@@ -108,7 +109,7 @@ def main():
     plt.legend(loc='upper right', fontsize=15)
     # Save the figure to the output directory
     plt.tight_layout()
-    plot_filename=os.path.join(output_dir, 'pollen_cluster_hierarchy_45.png')
+    plot_filename=os.path.join(output_directory, 'pollen_cluster_hierarchy_45.png')
     plt.savefig(plot_filename, dpi=300)
     plt.close()
     print(f"Plot saved as {plot_filename}")
