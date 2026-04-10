@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
 """
 Pollen Level-2 Hierarchy Optimization:
-This script splits the previous clustered pollen prototypes into smaller groups to train 
-specific CNN sub-models. This helps the system better distinguish between highly similar 
+This script splits the previous 15 clustered pollen prototypes into smaller groups to train 
+specific CNN sub-models. This enables the CNN system better distinguish between highly similar 
 species within the same cluster.
+Project Architecture:
+Pollen_analysis/
+├── data/                  # Root data: Initial modelFeatures_1.mat
+├── scripts/               # Processing and training scripts
+└── output/                # Multi-level output hierarchy
+    ├── Level1/            # Stage 1: Global clustering
+    │   ├── results/       # Input: species_to_cluster_mapping_v1.csv and 15  .mat files
+    │   └── audit/         # Global diagnostic dendrogram plots
+    ├── Level2/            # Stage 2: Balanced sub-grouping (Current Stage)
+    │   ├── results/       # Output: Final_Training_Mapping.csv
+    │   ├── training/      # ResNet weights & performance logs
+    │   └── audit/         # Output: Subgroup dendrograms and accuracy results
+    └── Level3/            # Stage 3: Recursive Refinement(Future if needed)
+        ├── results/       # Updated_L3_Mapping.csv
+        ├── training/      # Refined model outputs
+        └── audit/         # Confusion heatmaps and bottleneck diagnosis
 Process:
 1. Data Integrity:
 Compare the 15 Level-1 cluster prototypes against the 322-species baseline
@@ -38,21 +54,22 @@ from scipy.cluster.hierarchy import dendrogram
 # Generate the tree-like visualization of the clusters.
 import matplotlib.pyplot as plt              
 # Visualization
-# Ensure the current working directory is the root of 'Pollen_analysis' directory
-# The data directory has 15 level-1 matlab prototype files
-data_directory="data"                           
-# The output results' tables and plots in output/Level2
-output_directory="output/Level2"  
+# Ensure the current working directory is the root project directory Pollen_analysis
+# The input data of level-1 species_to_cluster_mapping_v1.csv and 15  corresponding .mat files
+data_directory="output/Level1/results"                           
+# The output results csv tables in output/Level2/results
+output_results="output/Level2/results"  
+# The output plots in output/Level2/audit
+output_audit="output/Level2/audit"
 # Folder where the optimized level 1 results and plots are saved
-v1_mapping_path="data/species_to_cluster_mapping_v1.csv"
-# Create the output folder if it's missing
-os.makedirs(output_directory,exist_ok=True)    
-if not os.path.exists(output_directory):
-    os.makedirs(output_directory)
+v1_mapping_path="output/Level1/results/species_to_cluster_mapping_v1.csv"
+# Create the output folders if they are missing
+os.makedirs(output_results, exist_ok=True)    
+os.makedirs(output_audit, exist_ok=True)    
 # The expected species count should be same as level 1(322)
 expected_count=322
 # Standard threshold that works for most clusters
-# This cutoff value was chosen as it could often produces 3-7 sub-groups
+# This cutoff value was chosen as it could often produces 3-7 sub-groups after examining all the dendrograms
 default_cutoff=25.0
 # Manual determine the cutoffs for specific clusters based on dendrogram observations
 # These adjustments prevent over-splitting (e.g., Model 4) or 
@@ -100,7 +117,7 @@ def level2_pipeline():
     )
     # Initiate an empty list for csv mapping results
     final_mapping_records=[]    
-    # Initiate an empty set for species in .mat files            
+    # Initiate an empty set for species in .mat files                   
     species_mats = set()                   
     print(f"{'Processing File'} | {'Count'} | {'Cutoff'} | {'Sub-groups'}")
     print("-" * 50)
@@ -126,7 +143,8 @@ def level2_pipeline():
         plt.axhline(y=cutoff, color='r',linestyle='--', label=f'Cutoff={cutoff}')
         plt.title(f"Optimized Level-2 Split: {file}")
         plt.tight_layout()
-        plt.savefig(os.path.join(output_directory, f"Dendrogram_{file.replace('.mat', '.png')}"))
+        # Audit: Save plot to the audit directory
+        plt.savefig(os.path.join(output_audit, f"Dendrogram_{file.replace('.mat', '.png')}"))
         plt.close()
         # Generate unique IDs for each sub-group (e.g., "10.1", "10.2").
         file_idx=file.split('_')[1].split('.')[0]
@@ -147,17 +165,18 @@ def level2_pipeline():
         print("These missing species may have been merged or excluded during model training.")
     else:
         print("Success: All species from baseline are accounted for.")
-    # Create the final comprehensive mapping CSV.
+    # Results: Create the final comprehensive mapping CSV.
     df_final=pd.DataFrame(final_mapping_records)
-    csv_path=os.path.join(output_directory, "Final_Training_Mapping.csv")
+    csv_path=os.path.join(output_results, "Final_Training_Mapping.csv")
     df_final.to_csv(csv_path, index=False, encoding='utf_8_sig')   
-    # Create a summary report showing the complexity of each Level-1 cluster.
-    summary_path=os.path.join(output_directory, "Split_Complexity_Summary.csv")
+    # Results: Create a summary report showing the complexity of each Level-1 cluster.
+    summary_path=os.path.join(output_results, "Split_Complexity_Summary.csv")
     stats=df_final.groupby("Source_MAT").size().reset_index(name='Species_Count')
     stats['SubGroup_Count']=df_final.groupby("Source_MAT")["SubGroup_ID"].nunique().values
     stats.to_csv(summary_path, index=False)
     print(f"Export Completed':")
     print(f"Final Mapping Table: {csv_path}")
     print(f"Complexity Summary: {summary_path}")
+    print(f"Audit Plots: {output_audit}")
 if __name__ == "__main__":
     level2_pipeline()
