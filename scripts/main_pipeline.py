@@ -4,6 +4,22 @@ Pollen Level-3 Evaluation Pipeline:
 This script evaluates the performance of Level-2 clustering results to identify "high-confusion" subgroups.
 It acts as a diagnostic filter to assess if Level-2 results are sufficient for species discrimination or if 
 the project must proceed to Level-3 clustering to separate morphologically indistinguishable taxa.
+Project Architecture:
+Pollen_analysis/
+├── data/                  # Root data: Initial modelFeatures_1.mat
+├── scripts/               # Processing and training scripts
+└── output/                # Multi-level output hierarchy
+    ├── Level1/            # Stage 1: Global clustering
+    │   ├── results/       # Input: species_to_cluster_mapping_v1.csv
+    │   └── audit/         # Global diagnostic dendrogram plots
+    ├── Level2/            # Stage 2: Balanced sub-grouping
+    │   ├── results/       # Input: Final_Training_Mapping.csv
+    │   ├── training/      # Output: ResNet weights (.pth) & raw performance logs
+    │   └── audit/         # Output: Cluster-specific accuracy reports & heatmaps
+    └── Level3/            # Stage 3: Recursive Refinement (Optimization)
+        ├── results/       # Updated_L3_Mapping.csv
+        ├── training/      # Refined model outputs
+        └── audit/         # Confusion heatmaps & bottleneck diagnosis
 Key Functions:
 1. Feasibility Assessment: Executes an initial baseline training pass to 
    measure how well the ResNet18 model handles current Level-2 clusters. This 
@@ -23,11 +39,11 @@ Environment Setup:
 1. Virtual Env: Ensure 'venv' is activated (source venv/bin/activate)
 2. Dependencies: torch, torchvision, pandas, scikit-learn, pillow, numpy
 Input Files:
-1.Mapping CSV: ./output/Level2/Final_Training_Mapping.csv (Species to SubGroup IDs)
+1.Mapping CSV: ./output/Level2/results/Final_Training_Mapping.csv (Species to SubGroup IDs)
 2.Image Data: ./data/Sorted_224/ (Pollen images organized by species folders)
 Output Files:
-1.Trained Models: ./output/Level3/refined_output/models/*.pth
-2.Confusion Matrices: ./output/Level3/refined_output/results/baseline/ and /refined/
+1.Trained Models: ./output/Level2/training/models/*.pth
+2.Confusion Matrices: ./output/Level2/training/results/baseline/ and /refined/
 3.Final Audit Report: Console output summarizing species filtering and training status
 Usage:
 1. Ensure current path in the root directory Pollen_analysis
@@ -35,7 +51,7 @@ Usage:
 '''
 import os
 # Path management and interacting with operating system            
-import torch         
+import torch          
 # Core PyTorch library for deep learning and tensor computations
 import torch.nn as nn  
 # Submodule for defining neural network layers and loss functions
@@ -52,19 +68,21 @@ import pandas as pd
 # Handling data manipulation of species lists and performance metrics calculation
 from PIL import Image 
 # Python image library for opening and verifying image file integrity
-import glob          
+import glob           
 # Unix-style pathname pattern expansion to find image files on disk
-import numpy as np   
+import numpy as np    
 # Numerical library for matrix operations and shuffling indices
-import random        
+import random         
 # Module for generating random numbers and sampling classes
 # Global configuration
 # Defines the path to the previous input Level-2 metadata csv 
-CSV_PATH="./output/Level2/Final_Training_Mapping.csv"
+CSV_PATH="./output/Level2/results/Final_Training_Mapping.csv"
 # Root directory where the physically sorted pollen images are stored
 DATA_ROOT="./data/Sorted_224"
-# Base directory for training outputs to ensure experimental isolation
-BASE_DIR="output/Level3/refined_output" 
+# Base directory for Level-2 training outputs (models and raw logs)
+BASE_DIR="output/Level2/training" 
+# Base directory for Level-2 audit reports (human-readable summaries)
+AUDIT_DIR="output/Level2/audit"
 # If baseline accuracy is below 80% percentage, the refined training stage is activated
 REFINEMENT_ACC_THRESHOLD = 80.0
 # Minimum image count required to trigger refinement; prevents overfitting on small data
@@ -91,6 +109,7 @@ DIRS = {
 # Automatically generate the folder structure on the disk if it doesn't already exist
 for path in DIRS.values():
     os.makedirs(path, exist_ok=True)
+os.makedirs(AUDIT_DIR, exist_ok=True)
 # This function matches csv species entries to corresponding physical image folder
 def find_folder(csv_species_name, actual_folders_dict):
     # Normalize the input name(remove spaces, convert to lowercases and string)
