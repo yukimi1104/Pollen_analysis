@@ -1,19 +1,39 @@
 #!/usr/bin/env python3
 """
 Pollen Level-1 Hierarchy Optimization:
-The script performs a cutoff on the CNN features to 
+The script performs a cutoff on the CNN features to
 simplify the classification of 322 pollen species. By calculating
-Euclidean distances between the 512-dimensional morphological vectors, 
+Euclidean distances between the 512-dimensional morphological vectors,
 The script cuts the dendrogram at a specific distance threshold to divide
-the 322 species into 10–15 distinct morphological clusters based on their 
+the 322 species into 10–15 distinct morphological clusters based on their
 CNN feature similarity.
+Project Architecture:
+Pollen_analysis/
+├── data/                  # Raw CNN features and image data
+├── scripts/               # Processing and training scripts
+└── output/                # Multi-level output hierarchy
+    ├── Level1/            # Stage 1: Global clustering (Current Stage)
+    │   ├── results/       # Mapping CSVs for subsequent stages
+    │   └── audit/         # Diagnostic dendrogram plots
+    ├── Level2/            # Stage 2: Balanced sub-grouping
+    │   ├── results/       # Final training manifests
+    │   └── audit/         # Cluster-specific dendrograms
+    └── Level3/            # Stage 3: Training & Refinement
+        ├── training/      # Raw model outputs and CSV logs
+        └── audit/         # Confusion matrix heatmaps and bottleneck diagnosis
 Setup:
 It is recommended to run this script within a virtual environment (venv)
+The root project directory is Pollen_analysis
 1. Create venv: python3 -m venv venv
 2. Activate: source venv/bin/activate 
 3. Install: pip install numpy pandas scipy matplotlib
+Input:
+data/modelFeatures_1.mat (322 species x 512 dimensions)
+Output:
+output/Level1/results/species_to_cluster_mapping_v1.csv
+output/Level1/audit/pollen_cluster_hierarchy_45.png
 Usage:
-    python3 scripts/pollen_hierarchy.py
+python3 scripts/pollen_hierarchy.py
 """
 import scipy.io
 #load MATLAB .mat files
@@ -31,10 +51,12 @@ from scipy.spatial.distance import pdist
 # Main execution pipeline for the hierarchical clustering analysis
 # This script should be executed under the Pollen_analysis directory root
 def main():
-    # Define output directory
-    output_directory='output/Level1'
-    # If there is no Level 1 in output directory, it will be created
-    os.makedirs(output_directory,exist_ok=True)
+    # Define output directories for results and audit tracking
+    results_directory = 'output/Level1/results'
+    audit_directory = 'output/Level1/audit'
+    # Ensure both directories exist
+    os.makedirs(results_directory, exist_ok=True)
+    os.makedirs(audit_directory, exist_ok=True)
     # Load the .mat file into a dictionary using scipy
     print("Load model feature data")
     data=scipy.io.loadmat('data/modelFeatures_1.mat')
@@ -86,8 +108,8 @@ def main():
         'Species_Name': species_names,
         'Cluster_ID': final_labels
     })
-    #Save the mapping result as csv form in the output directory
-    csv_filename=os.path.join(output_directory,'species_to_cluster_mapping_v1.csv')
+    #Save the mapping result as csv form in the results directory
+    csv_filename=os.path.join(results_directory,'species_to_cluster_mapping_v1.csv')
     mapping_df.to_csv(csv_filename, index=False)
     print(f"Map for {len(np.unique(final_labels))} clusters saved to {csv_filename}")
     #Visualization 
@@ -107,9 +129,9 @@ def main():
     # Add the decision cutoff line
     plt.axhline(y=final_cutoff, color='red', linestyle='--', linewidth=2, label=f'Cutoff={final_cutoff}')
     plt.legend(loc='upper right', fontsize=15)
-    # Save the figure to the output directory
+    # Save the figure to the audit directory
     plt.tight_layout()
-    plot_filename=os.path.join(output_directory, 'pollen_cluster_hierarchy_45.png')
+    plot_filename=os.path.join(audit_directory, 'pollen_cluster_hierarchy_45.png')
     plt.savefig(plot_filename, dpi=300)
     plt.close()
     print(f"Plot saved as {plot_filename}")
