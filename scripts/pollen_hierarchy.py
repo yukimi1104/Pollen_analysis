@@ -9,18 +9,20 @@ the 322 species into 10–15 distinct morphological clusters based on their
 CNN feature similarity.
 Project Architecture:
 Pollen_analysis/
-├── data/                  # Raw CNN features and image data
+├── data/                  # Root data: Initial modelFeatures_1.mat
 ├── scripts/               # Processing and training scripts
 └── output/                # Multi-level output hierarchy
-    ├── Level1/            # Stage 1: Global clustering (Current Stage)
-    │   ├── results/       # Mapping CSVs for subsequent stages
-    │   └── audit/         # Diagnostic dendrogram plots
-    ├── Level2/            # Stage 2: Balanced sub-grouping
-    │   ├── results/       # Final training manifests
-    │   └── audit/         # Cluster-specific dendrograms
-    └── Level3/            # Stage 3: Training & Refinement
-        ├── training/      # Raw model outputs and CSV logs
-        └── audit/         # Confusion matrix heatmaps and bottleneck diagnosis
+    ├── Level1/            # Stage 1: Global clustering (15 groups)
+    │   ├── results/       # Mapping CSV and Partitioned .mat prototypes
+    │   └── audit/         # Global diagnostic dendrogram plots
+    ├── Level2/            # Stage 2: Balanced sub-grouping and training
+    │   ├── results/       # Final_Training_Mapping.csv 
+    │   ├── training/      # ResNet weights and CSV performance logs
+    │   └── audit/         # Cluster-specific dendrograms and accuracy report
+    └── Level3/            # Stage 3: Recursive Refinement 
+        ├── results/       # Updated_L3_Mapping.csv 
+        ├── training/      # New model outputs after Level-3 splitting
+        └── audit/         # Confusion heatmaps and bottleneck resolution report
 Setup:
 It is recommended to run this script within a virtual environment (venv)
 The root project directory is Pollen_analysis
