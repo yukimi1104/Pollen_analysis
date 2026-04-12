@@ -126,7 +126,7 @@ class SubGroupPollenDataset(Dataset):
         self.labels = labels
         self.transform = transform
     def __len__(self):
-        Returns the total number of image samples in this subgroup.
+        #Returns the total number of image samples in this subgroup.
         return len(self.paths)
     def __getitem__(self, idx):
         """
@@ -154,7 +154,7 @@ def get_transforms(is_refined=False):
         return transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(degrees=(180, 180)), 
+            transforms.RandomRotation(180), # Modified: 180 means random between -180 and +180
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ])
@@ -209,7 +209,7 @@ def execute_training(sg_id, paths, labels, species_list, mode="baseline"):
     # Define Cross-Entropy Loss as the objective function. 
     criterion=nn.CrossEntropyLoss()
     # Print to console of real experiment tracking
-    print(f"[Phase] {mode.upper()} | Epochs: {epochs} | LR: {lr}")
+    print(f"[Phase] {mode.upper()} | SubGroup: {sg_id} | Epochs: {epochs} | LR: {lr}")
     # Standard PyTorch training loop
     for epoch in range(epochs):
         model.train()
@@ -239,9 +239,16 @@ def execute_training(sg_id, paths, labels, species_list, mode="baseline"):
     pd.DataFrame(cm, index=species_list, columns=species_list).to_csv(f"{csv_dir}/{mode}_cm_{sg_id}.csv")
     # Store the model weights for future inference or verification
     torch.save(model.state_dict(), f"{DIRS['models']}/{mode}_model_{sg_id}.pth")
+    # Clean up memory to prevent OOM
+    del model
+    torch.cuda.empty_cache()
     return acc
 # Main automatic loop
 def run():
+    # Set seeds for reproducibility
+    torch.manual_seed(42)
+    np.random.seed(42)
+    random.seed(42)
     # Load the species-to-subgroup mapping metadata from the CSV file
     df = pd.read_csv(CSV_PATH)
     # Extract unique subgroup IDs and sort them numerically
@@ -255,7 +262,7 @@ def run():
         sub_df=df[df['SubGroup_ID'].astype(str)==sg_id]
         # Extract and sort unique species names within this subgroup for consistent indexing
         species_names=sorted(sub_df['Species_Name'].unique())
-        paths, abels,cur_lab,valid_sp=[], [], 0, []
+        paths, labels, cur_lab, valid_sp = [], [], 0, [] 
         for name in species_names:
             # Increment the global audit counter for every species entry encountered
             global_audit['total_species_processed']+= 1
@@ -304,16 +311,16 @@ def run():
             print(f"Low accuracy ({baseline_acc:.1f}%) but SKIPPING refinement due to small sample size ({num_samples} < {MIN_SAMPLES_FOR_REFINEMENT}).")
     # Print the summarized statistics of the entire Level-3 preprocessing and training run
     print("\n" + "="*60)
-    print("Evalution of level-3 cutoff feasibility report")
+    print("Evaluation of Level-3 SubGroup Training Feasibility Report")
     print("="*60)
     print(f"Total Species processed from CSV: {global_audit['total_species_processed']}")
     print(f"Filtered (Uncertain/x/Group): {global_audit['total_lumped_filtered']}")
-    print(f"Filtered (Garbage/zz/Contaminant): {global_audit['total_garbage_filtered']}")
-    print(f"Missing (No images on disk):  {global_audit['total_missing_folders']}")
-    print(f"Final valid species trained:  {global_audit['total_valid_trained']}")
+    print(f"Filtered (Garbage/zz/Contaminant):{global_audit['total_garbage_filtered']}")
+    print(f"Missing (No images on disk): {global_audit['total_missing_folders']}")
+    print(f"Final valid species trained: {global_audit['total_valid_trained']}")
     print("="*60)
     print(f"Baseline Results: {DIRS['baseline_csv']}")
-    print(f"Refined Results: {DIRS['refined_csv']}")
+    print(f"Refined Results:  {DIRS['refined_csv']}")
     print("="*60 + "\n")
 if __name__ == "__main__":
     run()
