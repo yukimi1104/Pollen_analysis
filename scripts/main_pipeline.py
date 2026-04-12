@@ -1,45 +1,45 @@
 #!/usr/bin/env python3
 '''
 Pollen Level-3 Evaluation Pipeline:
-This script evaluates the performance of Level-2 clustering results to identify "high-confusion" subgroups.
-It acts as a diagnostic filter to assess if Level-2 results are sufficient for species discrimination or if 
-the project must proceed to Level-3 clustering to separate morphologically indistinguishable taxa.
+This script evaluates the performance of Level-2 clustering results to identify high-confusion subgroups.
+It is used to diagnosis if Level-2 results are sufficient for species discrimination or if 
+the project must proceed to Level-3 clustering to separate morphologically indistinguishable taxa with highly similarity.
 Project Architecture:
 Pollen_analysis/
 ├── data/                  # Root data: Initial modelFeatures_1.mat
 ├── scripts/               # Processing and training scripts
-└── output/                # Multi-level output hierarchy
+└── output/                # Multi level output hierarchy
     ├── Level1/            # Stage 1: Global clustering
     │   ├── results/       # Input: species_to_cluster_mapping_v1.csv
     │   └── audit/         # Global diagnostic dendrogram plots
-    ├── Level2/            # Stage 2: Balanced sub-grouping
+    ├── Level2/            # Stage 2: Balanced subgrouping(3-7 subtaxa per cluster)
     │   ├── results/       # Input: Final_Training_Mapping.csv
-    │   ├── training/      # Output: ResNet weights (.pth) & raw performance logs
+    │   ├── training/      # Output: ResNet weights (.pth) and raw performance logs(csvs)
     │   └── audit/         # Output: Cluster-specific accuracy reports & heatmaps
-    └── Level3/            # Stage 3: Recursive Refinement (Optimization)
+    └── Level3/            # Stage 3: Recursive Refinement 
         ├── results/       # Updated_L3_Mapping.csv
         ├── training/      # Refined model outputs
-        └── audit/         # Confusion heatmaps & bottleneck diagnosis
+        └── audit/         # Confusion heatmaps and low accuracy diagnosis
 Key Functions:
-1. Feasibility Assessment: Executes an initial baseline training pass to 
-   measure how well the ResNet18 model handles current Level-2 clusters. This 
+1. Feasibility Assessment: Run an initial baseline training pass to 
+   evaluate how well the ResNet18 model handles current Level-2 clusters. This 
    identifies high-confusion subgroups that are candidates for Level-3 split.
 2. Targeted Refinement Logic: Automatically triggers a refined training pass 
    for subgroups where Accuracy < 80% and Total Samples ≥ 100. This ensures that 
-   advanced data augumentation (e.g., 180° rotation) is only applied to data-rich clusters. 
-   It helps determine if confusion is due to insufficient training or if the species 
+   advanced data augumentation (e.g., 180° rotation) is only applied to clusters with rich data. 
+   It diagnoses if confusion is due to insufficient training or if the species 
    are morphologically inseparable, requiring a deeper Level-3 dendrogram split.
-3. Automated Data Cleansing: Dynamically detects and cleans taxonomic noise ('x') and 
+3. Automated Data Cleaning: Dynamically detects and cleans taxonomic noise ('x') and 
    environmental artifacts ('zz'), ensuring that the performance metrics 
    reflect true biological similarity rather than dataset contamination.
 4. Evidence-Based Reporting: Generates detailed audit reports and confusion 
    matrices. These serve as evidence to decide whether a subgroup 
    is finalized or requires a Level-3 clustering strategy to separate species.
 Environment Setup:
-1. Virtual Env: Ensure 'venv' is activated (source venv/bin/activate)
+1. Virtual Environment: activate venv (source venv/bin/activate)
 2. Dependencies: torch, torchvision, pandas, scikit-learn, pillow, numpy
 Input Files:
-1.Mapping CSV: ./output/Level2/results/Final_Training_Mapping.csv (Species to SubGroup IDs)
+1.Mapping CSV: ./output/Level2/results/Final_Training_Mapping.csv (Species to subgroup IDs)
 2.Image Data: ./data/Sorted_224/ (Pollen images organized by species folders)
 Output Files:
 1.Trained Models: ./output/Level2/training/models/*.pth
@@ -81,7 +81,7 @@ CSV_PATH="./output/Level2/results/Final_Training_Mapping.csv"
 DATA_ROOT="./data/Sorted_224"
 # Base directory for Level-2 training outputs (models and raw logs)
 BASE_DIR="output/Level2/training" 
-# Base directory for Level-2 audit reports (human-readable summaries)
+# Base directory for Level-2 audit reports in human readable format
 AUDIT_DIR="output/Level2/audit"
 # If baseline accuracy is below 80% percentage, the refined training stage is activated
 REFINEMENT_ACC_THRESHOLD = 80.0
@@ -95,8 +95,8 @@ global_audit = {
     # Count of species discarded due to taxonomic uncertainty
     'total_garbage_filtered': 0,     
     # Count of entries discarded as environmental noise (zz/garbage)
-    'total_missing_folders': 0,      #
-     Count of species in CSV that have no corresponding folder on disk
+    'total_missing_folders': 0,      
+    # Count of species in CSV that have no corresponding folder on disk
     'total_valid_trained': 0         
     # Final count of biological classes successfully sent to training
 }
@@ -106,10 +106,65 @@ DIRS = {
     'baseline_csv': f"{BASE_DIR}/results/baseline",
     'refined_csv': f"{BASE_DIR}/results/refined"
 }
-# Automatically generate the folder structure on the disk if it doesn't already exist
+# Automatically create the folder structure it doesn't already exist
 for path in DIRS.values():
-    os.makedirs(path, exist_ok=True)
-os.makedirs(AUDIT_DIR, exist_ok=True)
+    os.makedirs(path,exist_ok=True)
+os.makedirs(AUDIT_DIR,exist_ok=True)
+# Dataset class defining the logic for mapping individual raw pollen images to labels
+class SubGroupPollenDataset(Dataset):
+    #Custom Dataset class for handling pollen imagery within specific subgroups
+    #Inherits from torch.utils.data.Dataset to integrate with PyTorch DataLoaders
+    def __init__(self, paths, labels, transform=None):
+        """
+        paths (list):A list of absolute or relative file paths to the physical images (e.g., 'data/Sorted_224/Species_A/img_01.jpg').
+        labels (list):A list of numerical category indices corresponding to 
+        the species identity of each image(local indices (0, 1, 2...) unique to the current subgroup).
+        transform (callable, optional): A function/transform (like torchvision.transforms) 
+        that takes in a PIL image and returns a transformed version (e.g., Resizing, Tensor conversion, or Data Augmentation).
+        """
+        self.paths = paths
+        self.labels = labels
+        self.transform = transform
+    def __len__(self):
+        Returns the total number of image samples in this subgroup.
+        return len(self.paths)
+    def __getitem__(self, idx):
+        """
+        Fetches a single data-label pair from the dataset.
+        Steps:
+        1. Retrieve the image path and label at the specified index.
+        2. Open the image using PIL and ensure it is in RGB format.
+        3. Apply the 'transform' pipeline (e.g., convert to Tensor).
+        4. Return the processed image and its corresponding label.
+        """
+        # Open image and convert to RGB (to handle grayscale or CMYK)
+        img = Image.open(self.paths[idx]).convert('RGB')
+        label = self.labels[idx]
+        # Using PIL to open the image (Standard for PyTorch vision models)
+        if self.transform:
+            img = self.transform(img)
+        return img, label
+# Pre-trained architectures and image processing tools
+def get_transforms(is_refined=False):
+    # Standard normalization values for pre-trained ResNet on ImageNet
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    if is_refined:
+        # Refined Mode: Adding 180-degree rotation and horizontal flips
+        return transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(degrees=(180, 180)), 
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+        ])
+    else:
+        # Baseline Mode: Standard resize only
+        return transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+        ])
 # This function matches csv species entries to corresponding physical image folder
 def find_folder(csv_species_name, actual_folders_dict):
     # Normalize the input name(remove spaces, convert to lowercases and string)
@@ -117,23 +172,20 @@ def find_folder(csv_species_name, actual_folders_dict):
     # Return immediately if an exact match is found in the directory keys
     if name in actual_folders_dict:
         return actual_folders_dict[name]
-    # If not found, split the name into words (e.g., 'SAPI Acer campestre' to ['SAPI', 'Acer', 'campestre'])
-    parts = name.split()
-    # Split the name into words (e.g., 'SAPI Acer campestre' -> ['SAPI', 'Acer', 'campestre'])
+    # If not found, split the name into words
+    parts=name.split()
     for i in range(len(parts)):
-        # Try the full name first, if not match gradually reduce the name string to find a partial match 
         sub_name=" ".join(parts[i:]).strip()
         if sub_name in actual_folders_dict:
             return actual_folders_dict[sub_name]
     return None 
-    # Return None if there is no match
 # This function is used as training engine
-def execute_training(sg_id,paths,labels,species_list,mode="baseline"):
+def execute_training(sg_id, paths, labels, species_list, mode="baseline"):
     # Check if the current run is the refined stage or the initial baseline stage
     is_refined_mode=(mode=="refined")
     num_classes=len(species_list)
     # Create and shuffle indices to ensure a random distribution of pollen samples
-    indices = np.arange(len(paths))
+    indices=np.arange(len(paths))
     np.random.shuffle(indices)
     # Define the 90% training and 10% validation split point
     split = int(0.9*len(paths))
@@ -150,56 +202,37 @@ def execute_training(sg_id,paths,labels,species_list,mode="baseline"):
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model=model.to(device)
     # Refined mode uses a 10x smaller Learning Rate (0.0001)
-    # weight adjustments without overshooting the optimal solution
-    lr = 0.0001 if is_refined_mode else 0.001
-    # The number of epochs for refined mode is increased to allow the model more 
-    # time to converge and learn fine-grained morphological features from augmented data.
-    epochs = 15 if is_refined_mode else 8
+    lr=0.0001 if is_refined_mode else 0.001
+    epochs= 15 if is_refined_mode else 8
     # Initialize the Adam optimizer with the selected learning rate.
-    # Adam is chosen for its adaptive moment estimation, which helps in navigating 
-    # complex loss landscapes often found in fine-grained classification
     optimizer=optim.Adam(model.parameters(), lr=lr)
     # Define Cross-Entropy Loss as the objective function. 
-    # This is the standard choice for multi-class classification, measuring the 
-    # performance of the model whose output is a probability value between 0 and 1
-    criterion = nn.CrossEntropyLoss()
+    criterion=nn.CrossEntropyLoss()
     # Print to console of real experiment tracking
     print(f"[Phase] {mode.upper()} | Epochs: {epochs} | LR: {lr}")
     # Standard PyTorch training loop
-    # Iterate through the entire dataset multiple times
     for epoch in range(epochs):
-        # Set the model to training mode
         model.train()
-        # Load images in small batches to save memory and improve learning stability
+        running_loss=0.0
         for inputs, targets in train_loader:
-            # Move data to the GPU or CPU for processing
-            inputs, targets=inputs.to(device), targets.to(device)
-            # Clear previous gradients so they don't accumulate and mess up the new update
+            inputs,targets=inputs.to(device), targets.to(device)
             optimizer.zero_grad()
-            # Forward pass, loss calculation, and backpropagation
-            # Forward pass: The model makes a guess on the images
-            # Loss calculation: Compare the guess with the true species label
-            # Backward pass: Calculate how to change the weights to fix errors
-            criterion(model(inputs), targets).backward()
-            # Update the model's internal weights based on the backward pass
+            outputs=model(inputs)
+            loss=criterion(outputs, targets)
+            loss.backward()
             optimizer.step()
+            running_loss+=loss.item()
     # Model evaluation to generate the performance confusion matrix
     model.eval()
-    # Initialize an empty square matrix to track species-to-species confusion
     cm=np.zeros((num_classes, num_classes), dtype=int)
-    # Disable gradient tracking to speed up calculation and save memory during testing
+    # Disable gradient tracking to speed up calculation
     with torch.no_grad():
         for inputs, targets in test_loader:
-            # Get the raw probability scores for each possible species
             outputs=model(inputs.to(device))
-            # Pick the species ID with the highest probability score as the true label
             _, preds=torch.max(outputs, 1)
-            # Pick the species ID with the highest probability score as the model's prediction
-            # (The '_' captures the value, while 'preds' captures the index/class ID)
-            # [targets.item()] is the real species, [preds.item()] is the model's guess
             cm[targets.item(), preds.item()]+= 1
     # Calculate overall accuracy for the refinement training
-    total= p.sum(cm)
+    total=np.sum(cm)
     acc=(np.trace(cm)/total*100) if total > 0 else 0
     # Save results into folders based on the training phase (baseline/refined)
     csv_dir=DIRS['refined_csv'] if is_refined_mode else DIRS['baseline_csv']
@@ -211,89 +244,76 @@ def execute_training(sg_id,paths,labels,species_list,mode="baseline"):
 def run():
     # Load the species-to-subgroup mapping metadata from the CSV file
     df = pd.read_csv(CSV_PATH)
+    # Extract unique subgroup IDs and sort them numerically
+    subgroup_ids = sorted(df['SubGroup_ID'].astype(str).unique(), key=lambda x: [int(i) for i in x.split('.')])
     # Create a lookup dictionary of folders
-    # We map {lowercase_name: original_name} to ensure case-insensitive matching 
     actual_folders = {f.strip().lower(): f for f in os.listdir(DATA_ROOT) 
                       if os.path.isdir(os.path.join(DATA_ROOT, f))}
-    # Extract unique subgroup IDs and sort them numerically (e.g., '1.1' comes before '1.10').
     # Iterate through each sorted SubGroup ID to perform cluster-specific analysis
     for sg_id in subgroup_ids:
-        # Filter the main DataFrame to isolate species belonging only to the current SubGroup
-        sub_df = df[df['SubGroup_ID'].astype(str) == sg_id]
+        # Filter the main DataFrame to isolate species belonging only to the current subgroup
+        sub_df=df[df['SubGroup_ID'].astype(str)==sg_id]
         # Extract and sort unique species names within this subgroup for consistent indexing
         species_names=sorted(sub_df['Species_Name'].unique())
-        # Initialize containers for image paths, numerical labels, and tracking metadata
-        # cur_lab: local label index; valid_sp: names of species that passed all filters
-        paths, labels, cur_lab, valid_sp=[], [], 0, []
+        paths, abels,cur_lab,valid_sp=[], [], 0, []
         for name in species_names:
             # Increment the global audit counter for every species entry encountered
             global_audit['total_species_processed']+= 1
-            # Skip species with 'taxonomic uncertainty' (lumped groups or hybrids)
-            # This ensures the model learns from distinct biological individuals
-            if any(m in name.lower() for m in [' x', ' x ', 'group', '-group']):
+            # Skip species with taxonomic uncertainty
+            if any(m in name.lower() for m in ['x', 'x','group','-group']):
                 global_audit['total_lumped_filtered'] += 1
                 continue
-            # Skip 'garbage' or contaminant entries that shouldn't be in the dataset
+            # Skip contaminant entries 
             if name.lower().strip().startswith('zz') or 'garbage' in name.lower():
-                global_audit['total_garbage_filtered'] += 1
+                global_audit['total_garbage_filtered']+= 1
                 continue
-            # Attempt to link the CSV species name to a physical directory on the disk
-            target = find_folder(name, actual_folders)
+            # Attempt to link the CSV species name to a physical directory
+            target=find_folder(name, actual_folders)
             if target:
-                imgs = []
-                # Search for all supported image formats within the matched folder
+                imgs=[]
                 for ext in ['*.jpg', '*.JPG', '*.png', '*.PNG']:
                     imgs.extend(glob.glob(os.path.join(DATA_ROOT, target, ext)))
                 if imgs:
-                    # Class Balancing: Cap images at 1000 to prevent bias toward common species
+                    # Cap images at 1000
                     if len(imgs) > 1000: 
                         imgs = random.sample(imgs, 1000) 
-                    # Accumulate data: add full image paths and corresponding label IDs
                     paths.extend(imgs)
                     labels.extend([cur_lab] * len(imgs))
                     valid_sp.append(name)
-                    # Increment local label ID for the next species in this subgroup
-                    cur_lab += 1
+                    cur_lab+= 1
                 else:
-                    # Folder exists but contains no usable image files
-                    global_audit['total_missing_folders'] += 1
+                    global_audit['total_missing_folders']+= 1
             else:
-                # No matching folder found on disk for this CSV species entry
-                global_audit['total_missing_folders'] += 1
+                global_audit['total_missing_folders']+= 1
         # Validation: A classification task requires at least two distinct species
         if len(valid_sp) < 2:
-            print(f"kipping SubGroup {sg_id}: Insufficient valid classes after cleaning.")
+            print(f"Skipping SubGroup {sg_id}: Insufficient valid classes after cleaning.")
             continue
         num_samples = len(paths)
         print(f"\nProcessing SubGroup {sg_id} | Classes: {len(valid_sp)} | Samples: {num_samples}")
-        # Log the number of high-confidence species ready for training
         global_audit['total_valid_trained']+= len(valid_sp)
         # Phase 1: Execute initial Baseline training to establish a performance floor
         baseline_acc = execute_training(sg_id, paths, labels, valid_sp, mode="baseline")
         # Decision Logic: Check if the subgroup meets the criteria for Refined Training
-        # We only refine if accuracy is low AND we have enough data to avoid overfitting
-        should_refine = (baseline_acc < REFINEMENT_ACC_THRESHOLD) and (num_samples >= MIN_SAMPLES_FOR_REFINEMENT)
+        should_refine = (baseline_acc<REFINEMENT_ACC_THRESHOLD) and (num_samples>=MIN_SAMPLES_FOR_REFINEMENT)
         if should_refine:
             print(f"Refinement triggered: Acc {baseline_acc:.1f}% < {REFINEMENT_ACC_THRESHOLD}% and Samples {num_samples} >= {MIN_SAMPLES_FOR_REFINEMENT}")
             # Phase 2: Execute Refined training with specialized parameters and augmentation
             execute_training(sg_id, paths, labels, valid_sp, mode="refined")
         elif baseline_acc < REFINEMENT_ACC_THRESHOLD:
-            # Report cases where accuracy is low but data is too scarce for safe refinement
             print(f"Low accuracy ({baseline_acc:.1f}%) but SKIPPING refinement due to small sample size ({num_samples} < {MIN_SAMPLES_FOR_REFINEMENT}).")
     # Print the summarized statistics of the entire Level-3 preprocessing and training run
     print("\n" + "="*60)
-    print("📜 FINAL LEVEL-3 DATA PIPELINE AUDIT REPORT")
+    print("Evalution of level-3 cutoff feasibility report")
     print("="*60)
-    print(f"Total Species processed from CSV:   {global_audit['total_species_processed']}")
-    print(f"Filtered (Uncertain/x/Group):       {global_audit['total_lumped_filtered']}")
+    print(f"Total Species processed from CSV: {global_audit['total_species_processed']}")
+    print(f"Filtered (Uncertain/x/Group): {global_audit['total_lumped_filtered']}")
     print(f"Filtered (Garbage/zz/Contaminant): {global_audit['total_garbage_filtered']}")
-    print(f"Missing (No images on disk):        {global_audit['total_missing_folders']}")
-    print(f"Final valid species trained:        {global_audit['total_valid_trained']}")
+    print(f"Missing (No images on disk):  {global_audit['total_missing_folders']}")
+    print(f"Final valid species trained:  {global_audit['total_valid_trained']}")
     print("="*60)
-    # Output the exact locations of the generated confusion matrices and models
     print(f"Baseline Results: {DIRS['baseline_csv']}")
-    print(f"Refined Results:  {DIRS['refined_csv']}")
+    print(f"Refined Results: {DIRS['refined_csv']}")
     print("="*60 + "\n")
 if __name__ == "__main__":
-    # Standard Python entry point to execute the run function
     run()
