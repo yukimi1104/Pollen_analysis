@@ -3,3 +3,7 @@ __pycache__/
 *.mat
 output/
 .DS_Store
+data/
+*.jpg
+*.png
+venv/
