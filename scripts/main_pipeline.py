@@ -267,8 +267,8 @@ def run():
             # Increment the global audit counter for every species entry encountered
             global_audit['total_species_processed']+= 1
             # Skip species with taxonomic uncertainty
-            if any(m in name.lower() for m in ['x', 'x','group','-group']):
-                global_audit['total_lumped_filtered'] += 1
+            if name.lower().strip().startswith('x'):
+                global_audit['total_lumped_filtered']+= 1
                 continue
             # Skip contaminant entries 
             if name.lower().strip().startswith('zz') or 'garbage' in name.lower():
