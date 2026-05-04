@@ -1,3 +1,4 @@
+```markdown
 # Pollen Analysis: Recursive Hierarchical Classification
 **Author:** Yiran Chen  
 **Project:** BINP37 Research project, Master's program in bioinformatics  
@@ -128,3 +129,4 @@ python3 scripts/level3_pipeline.py
 # Parses localized validation outcomes to calculate precision, recall, F1-score,
 # true vs predicted Species Richness, and Shannon-Wiener Diversity Index (H')
 python3 scripts/evaluate_l3_metrics.py
+```
