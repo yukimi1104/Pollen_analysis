@@ -46,7 +46,7 @@ Pollen_analysis/
 For subgroups that fail to meet the target baseline accuracy of 90%, a recursive Level-3 refinement pass is triggered:
 
 1. **Dynamic data cap:** Species datasets are capped at a maximum of 1,000 images.
-2. **Micro-learning rates:** An optimized learning rate of $5 \cdot 10^{-5}$ over 20 epochs is applied.
+2. **Micro-learning rates:** An optimized learning rate of $0.00005$ ($5 \cdot 10^{-5}$) over 20 epochs is applied.
 3. **Hardware acceleration:** Automatic hardware selection (`cuda` vs. `cpu`).
 ---
 ## 4. Mathematical methodology
