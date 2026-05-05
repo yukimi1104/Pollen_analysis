@@ -51,9 +51,9 @@ For subgroups that fail to meet the target baseline accuracy of 90%, a recursive
 ---
 ## 4. Mathematical methodology
 
-### 4.1 Feature extraction (global average pooling)
+###  4.1 Feature extraction (global average pooling)
 
-This layer reduces the spatial dimensions of feature maps the tensor into a vector:
+This layer reduces the spatial dimensions of feature maps into a vector:
 
 ```math
 A \in \mathbb{R}^{C, H, W}
