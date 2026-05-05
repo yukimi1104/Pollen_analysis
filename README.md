@@ -53,11 +53,11 @@ For subgroups that fail to meet the target baseline accuracy of 90%, a recursive
 
 ### 4.1 Feature extraction (global average pooling)
 
-This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C, H, W}$ into a 512-dimensional vector $v_{c}$:
+This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C, H, W}$ into a 512-dimensional vector $v_c$:
 
 ```math
 
-v_{c} = \frac{1}{H \times \ W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
+v_c = \frac{1}{H \times \ W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
 ```
 
 ### 4.2 Centroid (Prototype) calculation
