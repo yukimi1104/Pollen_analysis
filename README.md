@@ -78,7 +78,7 @@ P_k = \frac{1}{m} \sum_{i=1}^{m} v_i
 Clustering is performed by minimizing the increase in total within-cluster variance. The distance between clusters $u$ and $v$ is defined as:
 
 ```math
-d(u, v) = \sqrt{\frac{|u||v|}{|u|+|v|}} \|P_u - P_v\|_2
+d(u, v) = \frac{|u| \cdot |v|}{|u| + |v|} \| P_u - P_v \|_2^2
 ```
 
 ### 4.4 Loss function (Cross-entropy)
