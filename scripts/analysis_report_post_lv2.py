@@ -62,7 +62,7 @@ REFINED_DIR = "./output/Level2/training/results/refined"
 # Path to save the final audit reports and plots
 AUDIT_OUT_DIR = "./output/Level2/audit"
 # Accuracy threshold which defines subgroups needing Level-3 attention
-FAIL_THRESHOLD = 80.0
+FAIL_THRESHOLD = 90.0
 # Ensure the audit output directory exists,if not it will automatically create one
 os.makedirs(AUDIT_OUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(AUDIT_OUT_DIR, "heatmaps"), exist_ok=True)
