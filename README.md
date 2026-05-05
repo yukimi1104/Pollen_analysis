@@ -43,7 +43,9 @@ Pollen_analysis/
 2. Use Ward's linkage to ensure each subgroup contains a balanced set of 3–7 species.
 3. Evaluate baseline validation performance using standard cross-entropy objectives.
 ### 3.3 Recursive hierarchical training and expert models (Level-3)
-For subgroups that fail to meet the target baseline accuracy of $90\ %$, a recursive Level-3 refinement pass is triggered:
+
+For subgroups that fail to meet the target baseline accuracy of $90\%$, a recursive Level-3 refinement pass is triggered:
+
 1. **Dynamic data cap:** Species datasets are capped at a maximum of 1,000 images via random sampling to maintain balanced representation.
 2. **Micro-learning rates:** An optimized learning rate of $5 \times 10^{-5}$ over 20 epochs is applied using the Adam optimizer to prevent gradient collapse.
 3. **Hardware acceleration:** Automatic hardware selection (`cuda` vs. `cpu`) transfers active computational graphs to GPU VRAM for rapid convergence.
