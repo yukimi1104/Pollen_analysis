@@ -46,17 +46,17 @@ Pollen_analysis/
 For subgroups that fail to meet the target baseline accuracy of 90%, a recursive Level-3 refinement pass is triggered:
 
 1. **Dynamic data cap:** Species datasets are capped at a maximum of 1,000 images.
-2. **Micro-learning rates:** An optimized learning rate of $5 \times 10^{-5}$ over 20 epochs is applied.
+2. **Micro-learning rates:** An optimized learning rate of $5 \cdot 10^{-5}$ over 20 epochs is applied.
 3. **Hardware acceleration:** Automatic hardware selection (`cuda` vs. `cpu`).
 ---
 ## 4. Mathematical methodology
 
 ### 4.1 Feature extraction (global average pooling)
 
-This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C \times H \times W}$ into a 512-dimensional vector $ v_{c} $:
+This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C, H, W}$ into a 512-dimensional vector $ v_{c} $:
 
 ```math
-v_c = \frac{1}{H \cdot W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
+v_{c} = \frac{1}{H \cdot W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
 ```
 
 ### 4.2 Centroid (Prototype) calculation
