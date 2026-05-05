@@ -93,9 +93,9 @@ Precision: The proportion of correctly predicted positive observations out of al
 
 Recall Rate: The proportion of correctly predicted positive observations out of all actual members of that class.
 
-```
-\text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
 ```math
+\text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
+```
 
 F1-Score: The harmonic mean of Precision and Recall, serving as the balanced metric for fine-tuning performance.
 
@@ -121,7 +121,6 @@ Relative Abundance ($p_i$): The numerical proportion of a single species relativ
 
 ```math
 p_i = \frac{n_i}{\sum_{j=1}^{S} n_j}
-
 ```
 
 Shannon-Wiener Diversity Index ($H'$): Quantifies biodiversity, accounting for both richness and evenness within the predicted community.
