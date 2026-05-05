@@ -55,22 +55,17 @@ For subgroups that fail to meet the target baseline accuracy of 90%, a recursive
 
 This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C, H, W}$ into a 512-dimensional vector $v_c$:
 
-<div>
-
 $$
 v_c = \frac{1}{H \times W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
 $$
-
-</div>
 
 ### 4.2 Centroid (Prototype) calculation
 
 For each taxon $k$ with $m$ samples, the prototype $P_k$ is computed as the arithmetic mean of its latent feature vectors $v_i$:
 
-```math
-
+$$
 P_k = \frac{1}{m} \sum_{i=1}^{m} v_i
-```
+$$
 
 ### 4.3 Ward’s linkage objective
 
