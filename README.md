@@ -51,32 +51,35 @@ For subgroups that fail to meet the target baseline accuracy of $90\%$, a recurs
 ## 4. Mathematical methodology
 
 ### 4.1 Feature extraction (global average pooling)
-
 This layer reduces the spatial dimensions of feature maps $A \in \mathbb{R}^{C \times H \times W}$ into a 512-dimensional vector $v_c$:
 
+```math
 v_c = \frac{1}{H \times W} \sum_{i=1}^{H} \sum_{j=1}^{W} A_{c,i,j}
-
+```
 
 ### 4.2 Centroid (Prototype) calculation
 
 For each taxon $k$ with $m$ samples, the prototype $P_k$ is computed as the arithmetic mean of its latent feature vectors $v_i$:
 
+```math
 P_k = \frac{1}{m} \sum_{i=1}^{m} v_i
-
+```
 
 ### 4.3 Ward’s linkage objective
 
 Clustering is performed by minimizing the increase in total within-cluster variance. The distance between clusters $u$ and $v$ is defined as:
 
+```math
 d(u, v) = \sqrt{\frac{|u||v|}{|u|+|v|}} \|P_u - P_v\|_2
-
+```
 
 ### 4.4 Loss function (Cross-entropy)
 
 The model training is optimized using the Cross-Entropy Loss function, where $y_c$ is the ground truth and $\hat{y}_c$ is the predicted probability:
 
+```math
 \mathcal{L} = -\sum_{c=1}^{C} y_c \log(\hat{y}_c)
-
+```
 
 ## 5. Advanced evaluation metrics
 
@@ -84,44 +87,54 @@ The model training is optimized using the Cross-Entropy Loss function, where $y_
 
 Precision: The proportion of correctly predicted positive observations out of all predictions made for that specific class.
 
+```math
 \text{Precision} = \frac{\text{TP}}{\text{TP} + \text{FP}}
-
+```
 
 Recall Rate: The proportion of correctly predicted positive observations out of all actual members of that class.
 
+```
 \text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
-
+```math
 
 F1-Score: The harmonic mean of Precision and Recall, serving as the balanced metric for fine-tuning performance.
 
+```math
 F_1\text{-Score} = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
-
+```
 
 Macro-Averages: The arithmetic mean of the metric calculated independently for each species class.
 
+```math
 \text{Macro } F_1 = \frac{1}{N} \sum_{i=1}^{N} F_{1}\text{-Score}_i
-
+```
 
 ### 5.2 Ecological assemblage metrics (Macro-ecological context)
 
 Species Richness ($S$): The absolute count of distinct taxa (species) detected within the pollen assemblage.
 
+```math
 S = \sum_{i=1}^{N} \mathbb{I}(\text{count}_i > 0)
-
+```
 
 Relative Abundance ($p_i$): The numerical proportion of a single species relative to the total number of individual pollen grains.
 
+```math
 p_i = \frac{n_i}{\sum_{j=1}^{S} n_j}
 
+```
 
 Shannon-Wiener Diversity Index ($H'$): Quantifies biodiversity, accounting for both richness and evenness within the predicted community.
 
+```math
 H' = -\sum_{i=1}^{S} (p_i \ln p_i)
-
+```
 
 Diversity Reconstruction Error ($\Delta H'$): The absolute error between true biological Shannon diversity and the diversity computed from predictions.
 
+```math
 \Delta H' = |H'_{\text{True}} - H'_{\text{Predicted}}|
+```
 
 ---
 ## 6. Methods
