@@ -118,18 +118,18 @@ def main():
     # Define target cluster count for organizational hierarchy
     target_clusters=15
     # Calculate absolute delta distance from the targeted 15 clusters
-    summary_df['Distance_From_Target'] = abs(summary_df['Num_Clusters']-target_clusters)
+    summary_df['Distance_From_Target']=abs(summary_df['Num_Clusters']-target_clusters)
     # Filter constraints to ensure the cluster count sits within a realistic 10-15 scope
-    candidates=summary_df[(summary_df['Num_Clusters'] >= 10) & (summary_df['Num_Clusters'] <= 15)]
+    candidates=summary_df[(summary_df['Num_Clusters']>=10)&(summary_df['Num_Clusters']<=15)]
     if not candidates.empty:
-        # Prioritize matching the target cluster size, breaking ties by minimizing the max group size for cluster balance
+        # Prioritize matching the target cluster size, minimizing the max group size for cluster balance
         best_row=candidates.sort_values(by=['Distance_From_Target', 'Max_Size']).iloc[0]
         final_cutoff=int(best_row['Cutoff'])
     else:
         # Fallback to the absolute minimum distance marker if strict range bounds cannot be satisfied
         best_row=summary_df.sort_values(by=['Distance_From_Target']).iloc[0]
         final_cutoff=int(best_row['Cutoff'])
-    print(f"\nDynamically optimized Level-1 Cutoff chosen: {final_cutoff} (Resulting in {int(best_row['Num_Clusters'])} clusters)")
+    print(f"\nDynamically optimized Level-1 Cutoff chosen: {final_cutoff} (with {int(best_row['Num_Clusters'])} clusters)")
     # Initialize figure for optimization curve
     plt.figure(figsize=(10, 6))  
     plt.plot(summary_df['Cutoff'], summary_df['Num_Clusters'], marker='o', color='royalblue')  
@@ -180,7 +180,7 @@ def main():
     # Identify all unique cluster IDs
     cluster_ids=np.unique(final_labels)  
     # Calculate means
-    centroids=np.array([prototypes[final_labels == i].mean(axis=0) for i in cluster_ids]) 
+    centroids=np.array([prototypes[final_labels==i].mean(axis=0) for i in cluster_ids]) 
      # Compute distances between centroids
     centroid_dist = squareform(pdist(centroids, metric='euclidean'))  
     # Initialize figure for heatmap
@@ -202,7 +202,7 @@ def main():
     )
     plt.axhline(y=final_cutoff, color='red', linestyle='--', linewidth=2, label=f'Cutoff {final_cutoff}') 
     plt.title(f'Global Pollen Species Hierarchy (Clusters={len(cluster_ids)})', fontsize=20)
-    plt.tight_layout()  # Adjust layout to prevent label clipping
+    plt.tight_layout()  
     plt.savefig(os.path.join(audit_dir, '04_pollen_cluster_hierarchy.png'), dpi=300)  
     plt.close()  # Close the plot
     # Local sub-cluster analysis 
