@@ -164,7 +164,7 @@ def get_transforms(is_refined=False):
         return transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(180), 
+            transforms.RandomRotation(degrees=(0, 360), interpolation=transforms.InterpolationMode.BILINEAR), 
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ])
