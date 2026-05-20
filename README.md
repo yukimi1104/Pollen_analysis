@@ -9,31 +9,31 @@ To resolve these fine-grained ambiguities, we used a Recursive Hierarchical Clas
 ---
 ## 2. Software, tools, and environment
 ### 2.1 Feature extraction and image processing
-* **PyTorch (v2.0.1):** Core deep learning framework for tensor computations and ResNet-18 implementation.
-* **Torchvision (v0.15.2):** Used for pre-trained ImageNet-1K weights and advanced data transformations.
-* **PIL (Pillow):** Python Imaging Library for handling image file integrity and RGB conversion.
+* **PyTorch (v2.2.1):** Core deep learning framework for tensor computations and ResNet-18 implementation.
+* **Torchvision (v0.17.1):** Used for pre-trained ImageNet-1K weights and advanced data transformations.
+* **PIL (Pillow v10.2.0):** Python Imaging Library for handling image file integrity and RGB conversion.
 ### 2.2 Hierarchical optimization and metrics evaluation
 * **Scipy (cluster.hierarchy):** Used for performing HAC, calculating linkages, and generating diagnostic plots.
 * **Ward’s Linkage Method:** Minimize intra-cluster variance during recursive taxonomic partitioning.
 * **Scikit-learn:** Used for cluster validation and auxiliary classification analytics.
-* **Numpy (v1.24.3) & Pandas (v2.0.3):** Core libraries for advanced matrix calculations, Matlab prototype parsing, and metadata file manipulation.
+* **Numpy (v1.26.4) & Pandas (v2.2.1):** Core libraries for advanced matrix calculations, Matlab prototype parsing, and metadata file manipulation.
 ---
 ## 3. Analysis pipeline and execution flow
 Pollen_analysis/
-├── data/                  # Root data: Initial modelFeatures_1.mat
-├── scripts/               # Processing, training, and evaluation scripts
-└── output/                # Multilevel output hierarchy
-    ├── Level1/            # Stage 1: Global clustering (15 parent clusters)
-    │   ├── results/       # Output: species_to_cluster_mapping_v1.csv
-    │   └── audit/         # Output: pollen_global_dendrogram.png
-    ├── Level2/            # Stage 2: Balanced subgrouping
-    │   ├── results/       # Output: Final_Training_Mapping.csv and Split_Complexity_Summary.csv
-    │   ├── training/      # Output: ResNet weights (.pth) and training logs (.csv)
-    │   └── audit/         # Output: Global_Accuracy_Summary.csv and Level-2 heatmaps
-    └── Level3/            # Stage 3: Recursive refinement for confused subgroups
-        ├── results/       # Output: Updated_L3_Mapping.csv (Specific for L3 failures)
-        ├── training/      # Output: Refined L3 model weights and specific logs
-        └── audit/         # Output: L3 advanced metrics and ecological evaluation logs
+├── data/                      # Root data: Initial modelFeatures_1.mat and Sorted_224/ images
+├── scripts/                   # Processing, training, and evaluation scripts
+└── output/                    # Multilevel output workspace hierarchy
+    ├── Level1/                # Stage 1: Global clustering (15 parent clusters)
+    │   ├── results/           # Output: species_to_cluster_mapping_v1.csv
+    │   └── audit/             # Output: pollen_global_dendrogram.png
+    └── Level2/                # Stage 2 (Subgrouping) and Stage 3 (Refinement) Workspace
+        ├── results/           # Output: Final_Training_Mapping.csv
+        ├── audit/             # Output: Feasibility reports and data filtering logs
+        └── training/          # Performance metrics and serializable model states
+            ├── models/        # Target: Saved ResNet checkpoint weights (.pth)
+            └── results/       # Target: Partitioned performance matrices
+                ├── baseline/  # Output: Unaugmented baseline confusion matrices (.csv)
+                └── refined/   # Output: Augmented micro-tuned confusion matrices (.csv)
 ### 3.1 Preliminary data analysis and global hierarchy (Level-1)
 1. Load 322 species prototypes (512-dimensional morphological vectors) from the Matlab input file.
 2. Calculate Euclidean distances between CNN features to simplify the 322-species spectrum.
@@ -42,23 +42,20 @@ Pollen_analysis/
 1. Split the Stage-1 clustered prototypes into smaller subgroups to train specific CNN sub-models.
 2. Use Ward's linkage to ensure each subgroup contains a balanced set of 3–7 species.
 3. Evaluate baseline validation performance using standard cross-entropy objectives.
-### 3.3 Recursive hierarchical training and expert models (Level-3)
-For subgroups that fail to meet the target baseline accuracy of 90%, a recursive Level-3 refinement pass is triggered:
-
-1. **Dynamic data cap:** Species datasets are capped at a maximum of 1,000 images.
-2. **Micro-learning rates:** An optimized learning rate of 0.00005 over 20 epochs is applied.
-3. **Hardware acceleration:** Automatic hardware selection (`cuda` vs. `cpu`).
+### 3.3 Recursive hierarchical training and expert models (Level-3 Refinement Layer)
+For subgroups that fail to meet the target baseline accuracy threshold of 80%, a recursive Level-3 refinement pass is dynamically triggered:
+1. Dynamic data cap: Species datasets are capped at a maximum of 1,000 images to ensure host memory stability.
+2. Continuous data augmentation: Apply continuous $180^\circ$ random rotations and horizontal flips to break orientation bias and slide preparation artifacts.
+3. Micro-learning rates: An optimized lower learning rate of 0.0001 over 15 epochs is applied for slow, localized fine-tuning.
+4. Breakpoint recovery mechanism: Automate disk state checking; if previous confusion matrices are present, the node safely skips to save compute time.
 ---
 ## 4. Mathematical methodology
-
 ###  4.1 Feature extraction (global average pooling)
-
 This layer reduces the spatial dimensions of feature maps into a vector:
-
 <!-- workaround -->
 
 ```math
-A \in \mathbb{R}^{C, H, W}
+A \in \mathbb{R}^{C \times H \times W}
 ```
 
 ```math
@@ -147,7 +144,9 @@ Diversity Reconstruction Error ($\Delta H'$): The absolute error between true bi
 ## 6. Methods
 ### 6.1 Pre-processing and quality control filtering
 * **Quality filtering:** Eradicate data leakage between training passes and guarantees that identical images do not skew cross-validation metrics.
-* **Dynamic subgroup Partition:** Isolate species by both visual and taxonomic proximity, which prevents severe class imbalance and accelerates training.
+* **LOSO:** Replaces traditional grain splits with slide-level group data splitting. This step blocks microscope slide background leakage and ensures validation is 
+completed on independent botanical individuals.
+* **Fallback rare species safeguard:** For rare species with only 1 available slide, the system automatically triggers a localized 90/10 random grain split backed by max(1, ...) bounding rules to keep small sample structures stable.
 ### 6.2 Data refinement and augmentation (Level-3 Expert Models)
 To resolve close inter-species similarities (e.g., the *ROSA Malus-Pyrus* complex), specialized data transformations are applied:
 * **$180^\circ$ Random rotation:** Eradicates orientation bias, forcing the neural network to identify isotropic exine and pore textures.
@@ -168,26 +167,12 @@ python3 scripts/pollen_hierarchy.py
 # 2. Analyze cluster complexity and class cohesion
 # Use secondary Ward's linkage clustering on Level-1 prototypes to split broad groups
 # Outputs: Final_Training_Mapping.csv and Split_Complexity_Summary.csv
-python3 scripts/analyze_cluster_cohesion.py
-# 3. Train and evaluate the Level-2 baseline expert models
-# Evaluate classification feasibility and trigger local ResNet-18 fine-tuning
-# Outputs: ResNet weights (.pth) and training logs (csvs)
-python3 scripts/main_pipeline.py
-# Level-3 subgroup classification
-# 4. Run automated post-Level 2 training audit and performance report
-# Summarize scattered logs and identify high-confusion species subgroups
-# Outputs: Global_Accuracy_Summary.csv & diagnostic confusion heatmaps
-python3 scripts/analysis_report_post_lv2.py
-# 5. Extract prototypes from Level-1 files and execute Level-3 secondary clustering
-# Re-cluster failed subgroups (accuracy < 90%) into smaller target label sets
-# Output: Updated_L3_Mapping.csv
-python3 scripts/analyze_level3_cohesion.py
-# 6. Execute expert model training for high-confusion Level-3 subgroups
-# Apply intense data augmentation and micro learning rates on ResNet-18
-# Outputs: Refined Level-3 model weights and performance outputs
-python3 scripts/level3_pipeline.py
-# 7. Run post-training evaluation to extract machine learning and ecological metrics
-# Parses localized validation outcomes to calculate precision, recall, F1-score,
-# true vs predicted Species Richness, and Shannon-Wiener Diversity Index (H')
-python3 scripts/evaluate_l3_metrics.py
+python3 scripts/pollen_subgroups.py
+# 3. Train baseline expert models and trigger automated Level-3 micro-tuning
+# This master pipeline processes subgroups, filters noisy data, applies LOSO splits,
+# and escalates low-accuracy groups (<80%) into deep augmented refinement passes.
+# Outputs: ResNet weights (.pth) and confusion matrix logs (.csv)
+nohup python3 -u scripts/pollen_level2_training.py >> output/Level2/training/level2_train_run.log 2>&1 &
+# 4. Monitor real-time cross-entropy iterations and refinement logs
+tail -f output/Level2/training/level2_train_run.log
 ```
